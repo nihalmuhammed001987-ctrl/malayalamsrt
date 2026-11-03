@@ -170,11 +170,20 @@ async function translateBatch(entries, config, startIndex) {
 
 $("translateBtn").addEventListener("click", async () => {
   if (state.busy || !state.entries.length) return;
-  const apiKey = $("apiKey").value.trim();
-  if (!apiKey) { setStatus("Please enter your API key.", "error"); $("apiKey").focus(); return; }
   const provider = $("provider").value;
-  const model = $("model").value.trim();
-  if (!model) { setStatus("Please enter a model name.", "error"); return; }
+const apiKey = $("apiKey").value.trim();
+const model = $("model").value.trim();
+
+if (["gemini", "openai"].includes(provider) && !apiKey) {
+  setStatus("Please enter your API key.", "error");
+  $("apiKey").focus();
+  return;
+}
+
+if (["gemini", "openai"].includes(provider) && !model) {
+  setStatus("Please enter a model name.", "error");
+  return;
+}
 
   state.busy = true;
   $("translateBtn").disabled = true;
