@@ -109,7 +109,7 @@ function loadFile(file) {
       $("translateBtn").disabled = false;
       $("result").hidden = true;
       $("progressArea").hidden = true;
-      setStatus("SRT file loaded. Check your AI provider and API key, then translate.", "success");
+     setStatus("SRT file loaded. Check your AI provider settings, then translate.", "success");
     } catch (error) {
       state.entries = [];
       $("translateBtn").disabled = true;
