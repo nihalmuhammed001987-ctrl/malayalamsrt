@@ -12,15 +12,19 @@ const SYSTEM_PROMPT = `You are an expert Malayalam dialogue adapter and subtitle
 Translate English dialogue into natural, spoken Malabar-region Malayalam (Kerala, especially Kozhikode/Malabar).
 This is NOT formal literary Malayalam and NOT word-for-word translation.
 Rules:
-- Preserve the exact meaning, intent, emotion, humour, sarcasm, relationship, register and character voice.
+- Use the previous and next subtitle lines only as context; translate only the current line. Preserve meaning, intent, emotion, humour, sarcasm, relationship, register and character voice.
 - Use idiomatic everyday Malabar Malayalam when it naturally fits. Avoid mechanically inserting slang into every line.
-- Prefer phrases a real person from the Malabar region might naturally say. Do not overdo dialect markers or caricature the dialect.
+- Prefer natural spoken Kerala Malayalam heard in everyday Malabar/Kozhikode conversations. Use locally natural phrasing without forcing stereotyped slang or caricaturing the dialect. Do not make every character sound identical.
 - Do not translate names, brands, or intentional foreign words unless context requires it.
-- Keep each subtitle concise and readable. Preserve line breaks only when useful; do not add explanations, notes, quotation marks, labels, or alternatives.
+- Keep each subtitle concise and readable for on-screen timing. Avoid unnecessary English words when a natural Malayalam expression exists. Preserve useful line breaks; do not add explanations, notes, quotation marks, labels, or alternatives.
 - Match the selected tone. "natural" means conversational, believable and moderately colloquial; not excessively rude or exaggerated.
 - Translate profanity according to the source intensity and context; do not intensify it unnecessarily.
 - Output ONLY a valid JSON object with a "translations" array, in exactly the same order and count as the input. Each array item must be a plain Malayalam subtitle string.
 - Never include subtitle numbers or timestamps in translations.`;
+
+class ProviderError extends Error {
+  constructor(message, status) { super(message); this.status = status; }
+}
 
 function extractJson(text) {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
@@ -39,47 +43,34 @@ async function callGemini(apiKey, model, prompt) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
+      generationConfig: { temperature: 0.35, responseMimeType: "application/json" }
     })
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error?.message || `Gemini API error (${response.status}).`);
+  if (!response.ok) throw new ProviderError(data.error?.message || `Gemini API error (${response.status}).`, response.status);
   const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("");
   if (!text) throw new Error("Gemini returned an empty response.");
   return text;
 }
 
 async function callOpenAI(apiKey, model, prompt) {
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      instructions: SYSTEM_PROMPT,
-      input: prompt,
-      text: {
-        format: { type: "json_object" }
-      }
+      temperature: 0.35,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt }
+      ]
     })
   });
-
   const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || `OpenAI API error (${response.status}).`);
-  }
-
-  const text = data.output
-    ?.flatMap(item => item.content || [])
-    .filter(part => part.type === "output_text")
-    .map(part => part.text)
-    .join("");
-
+  if (!response.ok) throw new ProviderError(data.error?.message || `OpenAI API error (${response.status}).`, response.status);
+  const text = data.choices?.[0]?.message?.content;
   if (!text) throw new Error("OpenAI returned an empty response.");
-
   return text;
 }
 
@@ -105,11 +96,12 @@ export async function onRequestPost({ request }) {
     rough: "Use stronger colloquial expressions only where the original dialogue and character justify them."
   }[tone];
 
-  const prompt = `Translate these subtitle lines into spoken Malabar Malayalam.
+  const prompt = `Translate the CURRENT subtitle lines into natural spoken Malabar Malayalam.
 Selected style: ${toneText}
-Return exactly ${subtitles.length} strings in the translations array, matching input order.
+For each item, use previous and next lines to understand context, but do not translate those context lines unless they are also listed as current items.
+Return exactly ${subtitles.length} strings in the translations array, matching input order. Do not omit short interjections. Do not invent dialogue.
 Input JSON:
-${JSON.stringify(subtitles.map(s => ({ id: s.id, text: s.text })))}`;
+${JSON.stringify(subtitles.map(s => ({ id: s.id, previous: typeof s.previous === "string" ? s.previous : "", current: s.text, next: typeof s.next === "string" ? s.next : "" })))}`;
 
   try {
     const raw = provider === "gemini"
@@ -122,6 +114,7 @@ ${JSON.stringify(subtitles.map(s => ({ id: s.id, text: s.text })))}`;
     }
     return json({ translations: parsed.translations.map(t => t.trim()) });
   } catch (error) {
-    return json({ error: error.message || "Translation provider request failed." }, 502);
+    const status = error instanceof ProviderError && [400, 401, 403, 404, 408, 429].includes(error.status) ? error.status : 502;
+    return json({ error: error.message || "Translation provider request failed." }, status);
   }
-                             }
+}
