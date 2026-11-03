@@ -147,16 +147,20 @@ async function callGemma(env, prompt) {
         { role: "user", content: prompt }
       ],
       temperature: 0.35,
-      response_format: { type: "json_object" }
+      chat_template_kwargs: {
+        enable_thinking: false
+      }
     }
   );
 
   const text =
     typeof result === "string"
       ? result
-      : result?.response;
+      : result?.choices?.[0]?.message?.content;
 
-  if (!text) throw new Error("Gemma returned an empty response.");
+  if (!text) {
+    throw new Error("Gemma returned an empty response.");
+  }
 
   return text;
 }
