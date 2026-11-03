@@ -61,14 +61,29 @@ function renderPreview() {
 }
 
 function updateProvider() {
-  const isGemini = $("provider").value === "gemini";
-  $("keyLabel").textContent = isGemini ? "Gemini API key" : "OpenAI API key";
-  $("model").value = isGemini ? "gemini-2.5-flash" : "gpt-4.1-mini";
-  $("modelHint").textContent = isGemini ? "Default Gemini model · change if needed" : "Default OpenAI model · change if needed";
-  $("apiKey").placeholder = isGemini ? "Paste your Gemini API key" : "Paste your OpenAI API key";
+  const provider = $("provider").value;
+  const needsApiKey = provider === "gemini" || provider === "openai";
+
+  $("keyLabel").textContent =
+    provider === "gemini" ? "Gemini API key" :
+    provider === "openai" ? "OpenAI API key" :
+    "API key not required";
+
+  $("apiKey").placeholder = needsApiKey
+    ? `Paste your ${provider === "gemini" ? "Gemini" : "OpenAI"} API key`
+    : "Not required for this provider";
+
+  $("apiKey").disabled = !needsApiKey;
+  $("model").disabled = provider === "gemma" || provider === "indictrans2";
+
+  $("modelHint").textContent =
+    provider === "gemma" ? "Cloudflare Gemma 4 model" :
+    provider === "indictrans2" ? "Cloudflare IndicTrans2 model" :
+    "Choose your preferred AI model quality.";
 }
 
 $("provider").addEventListener("change", updateProvider);
+updateProvider();
 $("toggleKey").addEventListener("click", () => {
   const input = $("apiKey");
   input.type = input.type === "password" ? "text" : "password";
