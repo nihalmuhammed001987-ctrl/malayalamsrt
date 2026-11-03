@@ -367,10 +367,10 @@ gemmaDiagnostic = String(raw).slice(0, 500);
       translations.length !== subtitles.length ||
       translations.some(t => typeof t !== "string" || !t.trim())
     ) {
-      return json({
-        error: "AI returned an incomplete translation batch. Try again."
+            return json({
+        error: "AI returned an incomplete translation batch. Try again.",
+        diagnostic: provider === "gemma" ? gemmaDiagnostic : undefined
       }, 502);
-    }
 
     return json({
       translations: translations.map(t => t.trim())
