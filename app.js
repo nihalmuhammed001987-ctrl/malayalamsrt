@@ -212,6 +212,8 @@ if (["gemini", "openai"].includes(provider)) {
   config.apiKey = apiKey;
   config.model = model;
 }
+   let translationSucceeded = false;
+
   try {
     let completed = state.translated.filter(Boolean).length;
     let batchNo = 0;
@@ -240,6 +242,7 @@ if (["gemini", "openai"].includes(provider)) {
 $("resultInfo").textContent = `${state.entries.length} subtitles translated · ${providerNames[provider]}`;
     renderPreview();
     setStatus("Translation complete. Review the preview and download your Malayalam SRT.", "success");
+        translationSucceeded = true;
     $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     const completed = state.translated.filter(Boolean).length;
@@ -248,8 +251,9 @@ $("resultInfo").textContent = `${state.entries.length} subtitles translated · $
   } finally {
     state.busy = false;
     $("translateBtn").disabled = false;
-    // Do not retain the API key in the form after the operation.
-    $("apiKey").value = "";
+       if (translationSucceeded) {
+      $("apiKey").value = "";
+    }
   }
 });
 
