@@ -2,22 +2,66 @@ const $ = (id) => document.getElementById(id);
 const state = { entries: [], translated: [], filename: "subtitles.srt", busy: false };
 
 function parseSrt(raw) {
-  const normalized = raw.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-  if (!normalized) throw new Error("The selected SRT file is empty.");
-  const blocks = normalized.split(/\n{2,}/);
+  const normalized = raw
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+
+  if (!normalized) {
+    throw new Error("The selected SRT file is empty.");
+  }
+
+  const lines = normalized.split("\n");
+  const timestampRegex =
+    /^\s*\d{1,}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,}:\d{2}:\d{2}[,.]\d{3}/;
+
+  const timestampIndexes = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (timestampRegex.test(lines[i])) {
+      timestampIndexes.push(i);
+    }
+  }
+
   const entries = [];
-  for (const block of blocks) {
-    const lines = block.split("\n");
-    const timeIndex = lines.findIndex(line => /^\s*\d{1,}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,}:\d{2}:\d{2}[,.]\d{3}/.test(line));
-    if (timeIndex < 0) continue;
+
+  for (let i = 0; i < timestampIndexes.length; i++) {
+    const timeIndex = timestampIndexes[i];
+    const nextTimeIndex = timestampIndexes[i + 1] ?? lines.length;
+
     const timing = lines[timeIndex].trim();
-    const index = timeIndex > 0 && /^\d+$/.test(lines[timeIndex - 1].trim())
-      ? lines[timeIndex - 1].trim() : String(entries.length + 1);
-    const text = lines.slice(timeIndex + 1).join("\n").trim();
-    if (!text) continue;
+
+    const index =
+      timeIndex > 0 && /^\d+$/.test(lines[timeIndex - 1].trim())
+        ? lines[timeIndex - 1].trim()
+        : String(entries.length + 1);
+
+    let textEnd = nextTimeIndex;
+
+    if (
+      nextTimeIndex < lines.length &&
+      /^\d+$/.test(lines[nextTimeIndex - 1].trim())
+    ) {
+      textEnd--;
+    }
+
+    const text = lines
+      .slice(timeIndex + 1, textEnd)
+      .join("\n")
+      .replace(/^\n+|\n+$/g, "");
+
+    if (!text.trim()) continue;
+
     entries.push({ index, timing, text });
   }
-  if (!entries.length) throw new Error("No valid SRT subtitle entries found. Please check the file format.");
+
+  if (!entries.length) {
+    throw new Error(
+      "No valid SRT subtitle entries found. Please check the file format."
+    );
+  }
+
   return entries;
 }
 
