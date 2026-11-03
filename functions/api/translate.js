@@ -326,8 +326,9 @@ ${JSON.stringify(
   }))
 )}`;
 
-  try {
+    try {
     let translations;
+    let gemmaDiagnostic = "";
 
     if (provider === "indictrans2") {
       translations = await callIndicTrans2(env, subtitles);
