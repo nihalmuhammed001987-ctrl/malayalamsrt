@@ -224,7 +224,7 @@ if (["gemini", "openai"].includes(provider)) {
       const batch = indexes.map(i => state.entries[i]);
       batchNo++;
       setProgress(completed, state.entries.length, `Translating batch ${batchNo} of ${totalBatches}…`);
-      const translated = await translateBatch(batch, config, indexes[0]);
+     const translated = await translateBatch(batch, config, indexes);
       translated.forEach((text, i) => { state.translated[indexes[i]] = String(text); });
       completed += batch.length;
       setProgress(completed, state.entries.length, `Translated ${completed} of ${state.entries.length} subtitles`);
