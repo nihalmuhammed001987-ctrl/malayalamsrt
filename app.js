@@ -203,7 +203,16 @@ if (["gemini", "openai"].includes(provider) && !model) {
   const batchSize = 12;
   const pendingCount = state.translated.filter(value => !value).length;
   const totalBatches = Math.ceil(pendingCount / batchSize);
-  const config = { provider, apiKey, model, dialect: $("dialect").value, tone: $("tone").value };
+const config = {
+  provider,
+  dialect: $("dialect").value,
+  tone: $("tone").value
+};
+
+if (["gemini", "openai"].includes(provider)) {
+  config.apiKey = apiKey;
+  config.model = model;
+}
   try {
     let completed = state.translated.filter(Boolean).length;
     let batchNo = 0;
