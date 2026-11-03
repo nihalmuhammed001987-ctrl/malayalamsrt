@@ -149,8 +149,12 @@ async function translateBatch(entries, config, indexes) {
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        const error = new Error(data.error || `Translation request failed (${response.status}).`);
+            if (!response.ok) {
+        const errorMessage = data.diagnostic
+          ? `${data.error || "Translation failed."}\nGemma diagnostic: ${data.diagnostic}`
+          : data.error || `Translation request failed (${response.status}).`;
+
+        const error = new Error(errorMessage);
         error.status = response.status;
         throw error;
       }
