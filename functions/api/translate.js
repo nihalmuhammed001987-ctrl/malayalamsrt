@@ -221,8 +221,58 @@ async function callIndicTrans2(env, subtitles) {
 
   return translations;
 }
+async function checkRateLimit(request, env) {
+  if (!env.RATE_LIMIT_KV) {
+    return {
+      allowed: false,
+      error: "Rate limit storage is not configured."
+    };
+  }
 
-export async function onRequestPost({ request, env }) {
+  const ip = request.headers.get("CF-Connecting-IP");
+
+  if (!ip) {
+    return {
+      allowed: false,
+      error: "Unable to identify request source."
+    };
+  }
+
+  const minute = Math.floor(Date.now() / 60000);
+
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(ip)
+  );
+
+  const hash = Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  const key = `translate:${hash}:${minute}`;
+
+  const current = Number(await env.RATE_LIMIT_KV.get(key) || 0);
+
+  if (current >= 60) {
+    return {
+      allowed: false,
+      error: "Too many requests. Please wait one minute and try again."
+    };
+  }
+
+  await env.RATE_LIMIT_KV.put(
+    key,
+    String(current + 1),
+    { expirationTtl: 120 }
+  );
+
+  return { allowed: true };
+}
+export async function onRequestPost({ request, env }) {   const rateLimit = await checkRateLimit(request, env);
+
+  if (!rateLimit.allowed) {
+    return json({ error: rateLimit.error }, 429);
+  }
   let body;
 
   try {
