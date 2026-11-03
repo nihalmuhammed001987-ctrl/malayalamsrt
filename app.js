@@ -211,7 +211,14 @@ if (["gemini", "openai"].includes(provider) && !model) {
       setProgress(completed, state.entries.length, `Translated ${completed} of ${state.entries.length} subtitles`);
     }
     $("result").hidden = false;
-    $("resultInfo").textContent = `${state.entries.length} subtitles translated · ${provider === "gemini" ? "Google Gemini" : "OpenAI"}`;
+   const providerNames = {
+  gemini: "Google Gemini",
+  openai: "OpenAI",
+  gemma: "Cloudflare Gemma 4",
+  indictrans2: "Cloudflare IndicTrans2"
+};
+
+$("resultInfo").textContent = `${state.entries.length} subtitles translated · ${providerNames[provider]}`;
     renderPreview();
     setStatus("Translation complete. Review the preview and download your Malayalam SRT.", "success");
     $("result").scrollIntoView({ behavior: "smooth", block: "start" });
