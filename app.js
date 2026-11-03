@@ -131,7 +131,7 @@ const dropzone = $("dropzone");
 dropzone.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
 async function translateBatch(entries, config, startIndex) {
-  const subtitles = entries.map((entry, i) => ({
+const entryIndex = Array.isArray(startIndex) ? startIndex[i] : startIndex + i;
     id: i,
     text: entry.text,
     previous: state.entries[startIndex + i - 1]?.text || "",
