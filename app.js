@@ -131,14 +131,15 @@ const dropzone = $("dropzone");
 dropzone.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
 async function translateBatch(entries, config, startIndex) {
-const entryIndex = Array.isArray(startIndex) ? startIndex[i] : startIndex + i;
+  const subtitles = entries.map((entry, i) => ({
     id: i,
     text: entry.text,
-    previous: state.entries[entryIndex - 1]?.text || "",
-next: state.entries[entryIndex + 1]?.text || ""
+    previous: state.entries[startIndex + i - 1]?.text || "",
+    next: state.entries[startIndex + i + 1]?.text || ""
   }));
 
   let lastError;
+
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await fetch("/api/translate", {
@@ -146,25 +147,35 @@ next: state.entries[entryIndex + 1]?.text || ""
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...config, subtitles })
       });
+
       const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
         const error = new Error(data.error || `Translation request failed (${response.status}).`);
         error.status = response.status;
         throw error;
       }
+
       if (!Array.isArray(data.translations) || data.translations.length !== entries.length) {
         throw new Error("The AI returned an unexpected number of translations. Please retry this batch.");
       }
+
       return data.translations;
+
     } catch (error) {
       lastError = error;
       const retryable = !error.status || error.status === 429 || error.status >= 500;
+
       if (!retryable || attempt === 3) break;
+
       const delay = Math.min(12000, 1500 * (2 ** (attempt - 1))) + Math.floor(Math.random() * 500);
+
       setStatus(`Temporary API issue. Retrying batch in ${Math.ceil(delay / 1000)} seconds (attempt ${attempt + 1}/3)…`, "warning");
+
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
+
   throw lastError || new Error("Translation failed.");
 }
 
