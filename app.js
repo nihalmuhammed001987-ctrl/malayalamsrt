@@ -137,7 +137,6 @@ async function translateBatch(entries, config, startIndex) {
     previous: state.entries[startIndex + i - 1]?.text || "",
     next: state.entries[startIndex + i + 1]?.text || ""
   }));
-
   let lastError;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
