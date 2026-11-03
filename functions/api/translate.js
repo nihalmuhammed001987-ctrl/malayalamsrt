@@ -336,7 +336,8 @@ ${JSON.stringify(
       let raw;
 
       if (provider === "gemma") {
-        raw = await callGemma(env, prompt);
+       raw = await callGemma(env, prompt);
+gemmaDiagnostic = String(raw).slice(0, 500);
       } else if (provider === "gemini") {
         raw = await callGemini(apiKey, model, prompt);
       } else {
