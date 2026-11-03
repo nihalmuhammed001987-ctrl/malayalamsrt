@@ -134,8 +134,8 @@ async function translateBatch(entries, config, startIndex) {
 const entryIndex = Array.isArray(startIndex) ? startIndex[i] : startIndex + i;
     id: i,
     text: entry.text,
-    previous: state.entries[startIndex + i - 1]?.text || "",
-    next: state.entries[startIndex + i + 1]?.text || ""
+    previous: state.entries[entryIndex - 1]?.text || "",
+next: state.entries[entryIndex + 1]?.text || ""
   }));
 
   let lastError;
