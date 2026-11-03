@@ -166,21 +166,27 @@ async function callIndicTrans2(env, subtitles) {
     throw new Error("Workers AI binding AI is missing.");
   }
 
-  const result = await env.AI.run(
-    "@cf/ai4bharat/indictrans2-en-indic-1B",
-    {
-      text: subtitles.map(s => s.text),
-      target_language: "mal_Mlym"
+  const translations = [];
+
+  for (const subtitle of subtitles) {
+    const result = await env.AI.run(
+      "@cf/ai4bharat/indictrans2-en-indic-1B",
+      {
+        text: subtitle.text,
+        target_language: "mal_Mlym"
+      }
+    );
+
+    const translatedText = result?.translations?.[0];
+
+    if (
+      typeof translatedText !== "string" ||
+      !translatedText.trim()
+    ) {
+      throw new Error("IndicTrans2 returned an empty translation.");
     }
-  );
 
-  const translations = result?.translations;
-
-  if (
-    !Array.isArray(translations) ||
-    translations.length !== subtitles.length
-  ) {
-    throw new Error("IndicTrans2 returned an incomplete translation batch.");
+    translations.push(translatedText.trim());
   }
 
   return translations;
