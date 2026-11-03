@@ -199,7 +199,7 @@ if (["gemini", "openai"].includes(provider) && !model) {
   $("translateBtn").disabled = true;
   $("result").hidden = true;
   if (state.translated.length !== state.entries.length) state.translated = new Array(state.entries.length);
-  const batchSize = 12;
+ const batchSize = provider === "gemma" ? 4 : 12;
   const pendingCount = state.translated.filter(value => !value).length;
   const totalBatches = Math.ceil(pendingCount / batchSize);
 const config = {
