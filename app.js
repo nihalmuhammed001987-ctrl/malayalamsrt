@@ -130,12 +130,12 @@ const dropzone = $("dropzone");
 }));
 dropzone.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
-async function translateBatch(entries, config, startIndex) {
+async function translateBatch(entries, config, indexes) {
   const subtitles = entries.map((entry, i) => ({
     id: i,
     text: entry.text,
-    previous: state.entries[startIndex + i - 1]?.text || "",
-    next: state.entries[startIndex + i + 1]?.text || ""
+    previous: state.entries[indexes[i] - 1]?.text || "",
+    next: state.entries[indexes[i] + 1]?.text || ""
   }));
   let lastError;
 
