@@ -62,28 +62,13 @@ function renderPreview() {
 
 function updateProvider() {
   const isGemini = $("provider").value === "gemini";
-  const modelSelect = $("model");
-
   $("keyLabel").textContent = isGemini ? "Gemini API key" : "OpenAI API key";
-
-  modelSelect.querySelectorAll("optgroup").forEach(group => {
-    const isGeminiGroup = group.label === "Google Gemini";
-    group.hidden = isGemini ? !isGeminiGroup : isGeminiGroup;
-  });
-
-  modelSelect.value = isGemini ? "gemini-3.8-flash" : "gpt-6.1-sol";
-
-  $("modelHint").textContent = isGemini
-    ? "Choose a Gemini model"
-    : "Choose an OpenAI model";
-
-  $("apiKey").placeholder = isGemini
-    ? "Paste your Gemini API key"
-    : "Paste your OpenAI API key";
+  $("model").value = isGemini ? "gemini-2.5-flash" : "gpt-4.1-mini";
+  $("modelHint").textContent = isGemini ? "Default Gemini model · change if needed" : "Default OpenAI model · change if needed";
+  $("apiKey").placeholder = isGemini ? "Paste your Gemini API key" : "Paste your OpenAI API key";
 }
 
 $("provider").addEventListener("change", updateProvider);
-updateProvider();
 $("toggleKey").addEventListener("click", () => {
   const input = $("apiKey");
   input.type = input.type === "password" ? "text" : "password";
@@ -130,18 +115,42 @@ const dropzone = $("dropzone");
 }));
 dropzone.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
-async function translateBatch(entries, config) {
-  const response = await fetch("/api/translate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...config, subtitles: entries.map((entry, i) => ({ id: i, text: entry.text })) })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Translation request failed (${response.status}).`);
-  if (!Array.isArray(data.translations) || data.translations.length !== entries.length) {
-    throw new Error("The AI returned an unexpected number of translations. Please retry this batch.");
+async function translateBatch(entries, config, startIndex) {
+  const subtitles = entries.map((entry, i) => ({
+    id: i,
+    text: entry.text,
+    previous: state.entries[startIndex + i - 1]?.text || "",
+    next: state.entries[startIndex + i + 1]?.text || ""
+  }));
+
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...config, subtitles })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.error || `Translation request failed (${response.status}).`);
+        error.status = response.status;
+        throw error;
+      }
+      if (!Array.isArray(data.translations) || data.translations.length !== entries.length) {
+        throw new Error("The AI returned an unexpected number of translations. Please retry this batch.");
+      }
+      return data.translations;
+    } catch (error) {
+      lastError = error;
+      const retryable = !error.status || error.status === 429 || error.status >= 500;
+      if (!retryable || attempt === 3) break;
+      const delay = Math.min(12000, 1500 * (2 ** (attempt - 1))) + Math.floor(Math.random() * 500);
+      setStatus(`Temporary API issue. Retrying batch in ${Math.ceil(delay / 1000)} seconds (attempt ${attempt + 1}/3)…`, "warning");
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
-  return data.translations;
+  throw lastError || new Error("Translation failed.");
 }
 
 $("translateBtn").addEventListener("click", async () => {
@@ -155,18 +164,27 @@ $("translateBtn").addEventListener("click", async () => {
   state.busy = true;
   $("translateBtn").disabled = true;
   $("result").hidden = true;
-  state.translated = new Array(state.entries.length);
+  if (state.translated.length !== state.entries.length) state.translated = new Array(state.entries.length);
   const batchSize = 12;
-  const totalBatches = Math.ceil(state.entries.length / batchSize);
+  const pendingCount = state.translated.filter(value => !value).length;
+  const totalBatches = Math.ceil(pendingCount / batchSize);
   const config = { provider, apiKey, model, dialect: $("dialect").value, tone: $("tone").value };
   try {
+    let completed = state.translated.filter(Boolean).length;
+    let batchNo = 0;
     for (let start = 0; start < state.entries.length; start += batchSize) {
-      const batch = state.entries.slice(start, start + batchSize);
-      const batchNo = Math.floor(start / batchSize) + 1;
-      setProgress(start, state.entries.length, `Translating batch ${batchNo} of ${totalBatches}…`);
-      const translated = await translateBatch(batch, config);
-      translated.forEach((text, i) => { state.translated[start + i] = String(text); });
-      setProgress(Math.min(start + batch.length, state.entries.length), state.entries.length, `Translated ${Math.min(start + batch.length, state.entries.length)} of ${state.entries.length} subtitles`);
+      const indexes = [];
+      for (let i = start; i < Math.min(start + batchSize, state.entries.length); i++) {
+        if (!state.translated[i]) indexes.push(i);
+      }
+      if (!indexes.length) continue;
+      const batch = indexes.map(i => state.entries[i]);
+      batchNo++;
+      setProgress(completed, state.entries.length, `Translating batch ${batchNo} of ${totalBatches}…`);
+      const translated = await translateBatch(batch, config, indexes[0]);
+      translated.forEach((text, i) => { state.translated[indexes[i]] = String(text); });
+      completed += batch.length;
+      setProgress(completed, state.entries.length, `Translated ${completed} of ${state.entries.length} subtitles`);
     }
     $("result").hidden = false;
     $("resultInfo").textContent = `${state.entries.length} subtitles translated · ${provider === "gemini" ? "Google Gemini" : "OpenAI"}`;
@@ -174,8 +192,9 @@ $("translateBtn").addEventListener("click", async () => {
     setStatus("Translation complete. Review the preview and download your Malayalam SRT.", "success");
     $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    setStatus(error.message || "Translation failed.", "error");
-    $("progressText").textContent = "Translation stopped";
+    const completed = state.translated.filter(Boolean).length;
+    setStatus(`${error.message || "Translation failed."} ${completed} of ${state.entries.length} subtitles are saved in this page. Press Translate again to resume the remaining entries.`, "error");
+    $("progressText").textContent = `Paused · ${completed}/${state.entries.length} completed`;
   } finally {
     state.busy = false;
     $("translateBtn").disabled = false;
