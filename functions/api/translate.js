@@ -342,8 +342,22 @@ ${JSON.stringify(
         raw = await callOpenAI(apiKey, model, prompt);
       }
 
-      const parsed = extractJson(raw);
-      translations = parsed.translations;
+            try {
+        const parsed = extractJson(raw);
+        translations = parsed.translations;
+      } catch (error) {
+        if (provider !== "gemma" || subtitles.length !== 1) {
+          throw error;
+        }
+
+        const plainText = raw.trim();
+
+        if (!plainText) {
+          throw error;
+        }
+
+        translations = [plainText];
+      }
     }
 
     if (
