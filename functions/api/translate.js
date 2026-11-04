@@ -5,10 +5,10 @@ const corsHeaders = {
   "X-Content-Type-Options": "nosniff"
 };
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: corsHeaders
+    headers: { ...corsHeaders, ...extraHeaders }
   });
 }
 
@@ -273,9 +273,11 @@ async function checkRateLimit(request, env) {
   const current = Number(await env.RATE_LIMIT_KV.get(key) || 0);
 
   if (current >= 60) {
+    const retryAfter = Math.max(1, Math.ceil((60000 - (Date.now() % 60000)) / 1000));
     return {
       allowed: false,
-      error: "Too many requests. Please wait one minute and try again."
+      error: "Too many requests. Please wait before continuing.",
+      retryAfter
     };
   }
 
@@ -290,7 +292,11 @@ async function checkRateLimit(request, env) {
 export async function onRequestPost({ request, env }) {   const rateLimit = await checkRateLimit(request, env);
 
   if (!rateLimit.allowed) {
-    return json({ error: rateLimit.error }, 429);
+    return json(
+      { error: rateLimit.error, retryAfter: rateLimit.retryAfter },
+      429,
+      rateLimit.retryAfter ? { "Retry-After": String(rateLimit.retryAfter) } : {}
+    );
   }
   let body;
 
