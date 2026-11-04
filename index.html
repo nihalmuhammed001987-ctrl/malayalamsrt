@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101827">
   <meta name="description" content="Translate SRT subtitles into natural Malabar Malayalam with AI. Preserve subtitle numbering and timestamps.">
-  <title>Faz SRT Translator — Natural Malabar Malayalam</title>
+  <title>Faz SRT Translator — Kerala Malayalam</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 
   <main class="container">
     <section class="hero">
-      <div class="eyebrow">ENGLISH → MALABAR MALAYALAM</div>
+      <div class="eyebrow">ENGLISH → KERALA MALAYALAM</div>
       <h1>Subtitles that sound<br><span>like real people.</span></h1>
       <p>Translate English subtitles into natural, conversational Kerala Malayalam — not stiff, word-for-word textbook language.</p>
       <div class="hero-tags"><span>മലബാർ ശൈലി</span><span>Natural dialogue</span><span>Timestamp-safe SRT</span></div>
@@ -77,8 +77,21 @@
         </label>
         <label class="field">
           <span>Malayalam style</span>
-          <select id="dialect">
-            <option value="malabar" selected>Malabar / Kozhikode</option>
+          <select id="dialect" aria-label="Select Kerala district">
+            <option value="kasaragod">Kasaragod</option>
+            <option value="kannur">Kannur</option>
+            <option value="wayanad">Wayanad</option>
+            <option value="kozhikode" selected>Kozhikode</option>
+            <option value="malappuram">Malappuram</option>
+            <option value="palakkad">Palakkad</option>
+            <option value="thrissur">Thrissur</option>
+            <option value="ernakulam">Ernakulam</option>
+            <option value="idukki">Idukki</option>
+            <option value="kottayam">Kottayam</option>
+            <option value="alappuzha">Alappuzha</option>
+            <option value="pathanamthitta">Pathanamthitta</option>
+            <option value="kollam">Kollam</option>
+            <option value="thiruvananthapuram">Thiruvananthapuram</option>
           </select>
         </label>
         <label class="field">
@@ -94,7 +107,7 @@
 
       <div class="notice">
         <span>✦</span>
-        <p><b>Translation approach:</b> Keep the meaning, emotion, character voice and context. Use natural Malabar Malayalam where it fits. Avoid forced slang and overly formal, literal translations.</p>
+        <p><b>Translation approach:</b> Keep the meaning, emotion, character voice and context. Follow the selected Kerala district’s natural Malayalam style without forcing local slang or overly literal translations.</p>
       </div>
 
       <button id="translateBtn" class="primary-btn" disabled>
