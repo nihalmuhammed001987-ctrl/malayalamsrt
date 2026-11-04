@@ -220,27 +220,48 @@ async function translateBatch(entries, config, indexes) {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       await waitForRequestSlot();
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...config, subtitles })
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 90000);
+      let response;
 
-      const data = await response.json().catch(() => ({}));
+      try {
+        response = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...config, subtitles }),
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        if (fetchError.name === "AbortError") {
+          throw new Error("The translation request timed out. Please retry this batch.");
+        }
+        throw new Error("Network connection failed. Check your internet connection and retry.");
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
-            if (!response.ok) {
-        const errorMessage = data.diagnostic
-          ? `${data.error || "Translation failed."}\nGemma diagnostic: ${data.diagnostic}`
-          : data.error || `Translation request failed (${response.status}).`;
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const fallback = response.status >= 500
+          ? "The translation service is temporarily unavailable."
+          : `Translation request failed (HTTP ${response.status}).`;
+        const errorMessage = data?.diagnostic
+          ? `${data.error || fallback}\nGemma diagnostic: ${data.diagnostic}`
+          : data?.error || fallback;
 
         const error = new Error(errorMessage);
         error.status = response.status;
-        error.retryAfter = Math.ceil(Number(response.headers.get("Retry-After") || data.retryAfter || 0));
+        error.retryAfter = Math.ceil(Number(response.headers.get("Retry-After") || data?.retryAfter || 0));
         throw error;
       }
 
-      if (!Array.isArray(data.translations) || data.translations.length !== entries.length) {
-        throw new Error("The AI returned an unexpected number of translations. Please retry this batch.");
+      if (!data || !Array.isArray(data.translations) || data.translations.length !== entries.length) {
+        throw new Error("The server returned an invalid translation response. Please retry this batch.");
+      }
+
+      if (data.translations.some(text => typeof text !== "string" || !text.trim())) {
+        throw new Error("The AI returned an empty subtitle translation. Please retry this batch.");
       }
 
       return data.translations;
