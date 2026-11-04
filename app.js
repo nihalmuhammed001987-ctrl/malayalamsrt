@@ -32,16 +32,24 @@ function parseSrt(raw) {
 
     const timing = lines[timeIndex].trim();
 
-    const index =
-      timeIndex > 0 && /^\d+$/.test(lines[timeIndex - 1].trim())
-        ? lines[timeIndex - 1].trim()
-        : String(entries.length + 1);
+    // A numeric line is a subtitle index only at the start of a block.
+    // This avoids mistaking dialogue such as "2024" for the next cue number.
+    const hasIndexLine =
+      timeIndex > 0 &&
+      /^\d+$/.test(lines[timeIndex - 1].trim()) &&
+      (timeIndex - 1 === 0 || lines[timeIndex - 2].trim() === "");
+
+    const index = hasIndexLine
+      ? lines[timeIndex - 1].trim()
+      : String(entries.length + 1);
 
     let textEnd = nextTimeIndex;
 
     if (
       nextTimeIndex < lines.length &&
-      /^\d+$/.test(lines[nextTimeIndex - 1].trim())
+      /^\d+$/.test(lines[nextTimeIndex - 1].trim()) &&
+      nextTimeIndex >= 2 &&
+      lines[nextTimeIndex - 2].trim() === ""
     ) {
       textEnd--;
     }
