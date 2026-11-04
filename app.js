@@ -198,6 +198,16 @@ const dropzone = $("dropzone");
 }));
 dropzone.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
+let nextRequestAt = 0;
+
+async function waitForRequestSlot() {
+  const waitMs = Math.max(0, nextRequestAt - Date.now());
+  if (waitMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+  nextRequestAt = Date.now() + 1100;
+}
+
 async function translateBatch(entries, config, indexes) {
   const subtitles = entries.map((entry, i) => ({
     id: i,
@@ -209,6 +219,7 @@ async function translateBatch(entries, config, indexes) {
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
+      await waitForRequestSlot();
       const response = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,6 +235,7 @@ async function translateBatch(entries, config, indexes) {
 
         const error = new Error(errorMessage);
         error.status = response.status;
+        error.retryAfter = Math.ceil(Number(response.headers.get("Retry-After") || data.retryAfter || 0));
         throw error;
       }
 
@@ -239,7 +251,9 @@ async function translateBatch(entries, config, indexes) {
 
       if (!retryable || attempt === 3) break;
 
-      const delay = Math.min(12000, 1500 * (2 ** (attempt - 1))) + Math.floor(Math.random() * 500);
+      const delay = error.status === 429 && error.retryAfter > 0
+        ? error.retryAfter * 1000
+        : Math.min(12000, 1500 * (2 ** (attempt - 1))) + Math.floor(Math.random() * 500);
 
       setStatus(`Temporary API issue. Retrying batch in ${Math.ceil(delay / 1000)} seconds (attempt ${attempt + 1}/3)…`, "warning");
 
