@@ -370,8 +370,25 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Invalid model name." }, 400);
   }
 
-  if (dialect !== "malabar") {
-    return json({ error: "Unsupported Malayalam dialect." }, 400);
+  const districtStyles = {
+    kasaragod: "Kasaragod district Malayalam",
+    kannur: "Kannur district Malayalam",
+    wayanad: "Wayanad district Malayalam",
+    kozhikode: "Kozhikode district Malayalam",
+    malappuram: "Malappuram district Malayalam",
+    palakkad: "Palakkad district Malayalam",
+    thrissur: "Thrissur district Malayalam",
+    ernakulam: "Ernakulam district Malayalam",
+    idukki: "Idukki district Malayalam",
+    kottayam: "Kottayam district Malayalam",
+    alappuzha: "Alappuzha district Malayalam",
+    pathanamthitta: "Pathanamthitta district Malayalam",
+    kollam: "Kollam district Malayalam",
+    thiruvananthapuram: "Thiruvananthapuram district Malayalam"
+  };
+
+  if (!Object.prototype.hasOwnProperty.call(districtStyles, dialect)) {
+    return json({ error: "Please select a valid Kerala district." }, 400);
   }
 
   if (!["natural", "cinematic", "clean", "rough"].includes(tone)) {
@@ -403,7 +420,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const toneText = {
-    natural: "Natural, believable everyday conversation. Moderate colloquial Malabar Malayalam.",
+    natural: "Natural, believable everyday conversation using the selected district’s everyday Malayalam.",
     cinematic: "Expressive cinematic dialogue while keeping character voices believable.",
     clean: "Clean conversational Malayalam with minimal regional slang.",
     rough: "Stronger colloquial expressions only where the original dialogue justifies them."
