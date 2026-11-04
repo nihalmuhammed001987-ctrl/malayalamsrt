@@ -107,6 +107,22 @@ function renderPreview() {
 function updateProvider() {
   const provider = $("provider").value;
   const needsApiKey = provider === "gemini" || provider === "openai";
+  const modelSelect = $("model");
+  const groups = Array.from(modelSelect.querySelectorAll("optgroup"));
+  const selectedGroup = provider === "gemini" ? "Google Gemini" : "OpenAI";
+
+  groups.forEach(group => {
+    group.hidden = needsApiKey && group.label !== selectedGroup;
+  });
+
+  if (needsApiKey) {
+    const visibleOptions = Array.from(
+      modelSelect.querySelectorAll(`optgroup[label="${selectedGroup}"] option`)
+    );
+    if (!visibleOptions.some(option => option.value === modelSelect.value)) {
+      modelSelect.value = visibleOptions[0]?.value || "";
+    }
+  }
 
   $("keyLabel").textContent =
     provider === "gemini" ? "Gemini API key" :
@@ -118,12 +134,12 @@ function updateProvider() {
     : "Not required for this provider";
 
   $("apiKey").disabled = !needsApiKey;
-  $("model").disabled = provider === "gemma" || provider === "indictrans2";
+  modelSelect.disabled = !needsApiKey;
 
   $("modelHint").textContent =
-    provider === "gemma" ? "Cloudflare Gemma 4 model" :
-    provider === "indictrans2" ? "Cloudflare IndicTrans2 model" :
-    "Choose your preferred AI model quality.";
+    provider === "gemma" ? "Cloudflare Gemma 4 model (model selection is automatic)." :
+    provider === "indictrans2" ? "Cloudflare IndicTrans2 model (model selection is automatic)." :
+    `Choose a ${selectedGroup} model.`;
 }
 
 $("provider").addEventListener("change", updateProvider);
