@@ -240,14 +240,32 @@ async function callIndicTrans2(env, subtitles) {
 
   return translations;
 }
-async function checkRateLimit(request, env) {
-  if (!env.RATE_LIMIT_KV) {
+// Best-effort fallback for deployments where the KV binding has not yet
+// been configured. This is isolate-local, not a substitute for shared KV.
+const fallbackRateCounts = new Map();
+
+function checkFallbackRateLimit(ip) {
+  const minute = Math.floor(Date.now() / 60000);
+  const key = `${ip}:${minute}`;
+  const current = fallbackRateCounts.get(key) || 0;
+
+  for (const savedKey of fallbackRateCounts.keys()) {
+    if (!savedKey.endsWith(`:${minute}`)) fallbackRateCounts.delete(savedKey);
+  }
+
+  if (current >= 60) {
     return {
       allowed: false,
-      error: "Rate limit storage is not configured."
+      error: "Too many requests. Please wait before continuing.",
+      retryAfter: Math.max(1, Math.ceil((60000 - (Date.now() % 60000)) / 1000))
     };
   }
 
+  fallbackRateCounts.set(key, current + 1);
+  return { allowed: true };
+}
+
+async function checkRateLimit(request, env) {
   const ip = request.headers.get("CF-Connecting-IP");
 
   if (!ip) {
@@ -255,6 +273,12 @@ async function checkRateLimit(request, env) {
       allowed: false,
       error: "Unable to identify request source."
     };
+  }
+
+  // Keep shared KV as the production path; use a temporary local fallback
+  // instead of blocking every translation when the binding is absent.
+  if (!env.RATE_LIMIT_KV) {
+    return checkFallbackRateLimit(ip);
   }
 
   const minute = Math.floor(Date.now() / 60000);
@@ -269,24 +293,17 @@ async function checkRateLimit(request, env) {
     .join("");
 
   const key = `translate:${hash}:${minute}`;
-
   const current = Number(await env.RATE_LIMIT_KV.get(key) || 0);
 
   if (current >= 60) {
-    const retryAfter = Math.max(1, Math.ceil((60000 - (Date.now() % 60000)) / 1000));
     return {
       allowed: false,
       error: "Too many requests. Please wait before continuing.",
-      retryAfter
+      retryAfter: Math.max(1, Math.ceil((60000 - (Date.now() % 60000)) / 1000))
     };
   }
 
-  await env.RATE_LIMIT_KV.put(
-    key,
-    String(current + 1),
-    { expirationTtl: 120 }
-  );
-
+  await env.RATE_LIMIT_KV.put(key, String(current + 1), { expirationTtl: 120 });
   return { allowed: true };
 }
 export async function onRequestPost({ request, env }) {
