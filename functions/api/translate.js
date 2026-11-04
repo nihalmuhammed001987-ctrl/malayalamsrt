@@ -289,7 +289,16 @@ async function checkRateLimit(request, env) {
 
   return { allowed: true };
 }
-export async function onRequestPost({ request, env }) {   const rateLimit = await checkRateLimit(request, env);
+export async function onRequestPost({ request, env }) {
+  let rateLimit;
+
+  try {
+    rateLimit = await checkRateLimit(request, env);
+  } catch {
+    return json({
+      error: "Translation service is temporarily unavailable. Please try again shortly."
+    }, 503);
+  }
 
   if (!rateLimit.allowed) {
     return json(
@@ -298,6 +307,7 @@ export async function onRequestPost({ request, env }) {   const rateLimit = awai
       rateLimit.retryAfter ? { "Retry-After": String(rateLimit.retryAfter) } : {}
     );
   }
+
   let body;
 
   try {
