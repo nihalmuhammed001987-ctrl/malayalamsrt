@@ -426,9 +426,11 @@ export async function onRequestPost({ request, env }) {
     rough: "Stronger colloquial expressions only where the original dialogue justifies them."
   }[tone];
 
-  const prompt = `Translate the CURRENT subtitle lines into natural spoken Malabar Malayalam.
+  const prompt = `Translate the CURRENT subtitle lines into natural spoken Malayalam commonly used in ${districtStyles[dialect]}.
 
-Selected style: ${toneText}
+District style: ${districtStyles[dialect]}. Use natural local vocabulary and phrasing where appropriate, but do not exaggerate accents, force slang, or stereotype speakers. Keep the Malayalam understandable and authentic.
+
+Selected tone: ${toneText}
 
 Use previous and next lines only as context.
 Translate only the current lines.
